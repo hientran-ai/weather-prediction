@@ -1,7 +1,8 @@
-import streamlit as st
 import matplotlib.pyplot as plt
-from utils.helpers import styled_fig
+import streamlit as st
+
 from constants.config import ACCENT, ACCENT2, ACCENT3, CARD_BG, TEXT
+from utils.helpers import styled_fig
 
 
 def render(df):
@@ -48,8 +49,8 @@ def render(df):
         axes[0].hist(df[sel_col].dropna(), bins=40, color=ACCENT, edgecolor="white", alpha=0.85)
         axes[0].set_title(f"Phân phối {sel_col}", color=TEXT)
         axes[1].boxplot(df[sel_col].dropna(), patch_artist=True,
-                        boxprops=dict(facecolor=ACCENT, color=ACCENT),
-                        whiskerprops=dict(color=TEXT), capprops=dict(color=TEXT),
-                        medianprops=dict(color=ACCENT2, linewidth=2))
+                        boxprops={"facecolor": ACCENT, "color": ACCENT},
+                        whiskerprops={"color": TEXT}, capprops={"color": TEXT},
+                        medianprops={"color": ACCENT2, "linewidth": 2})
         axes[1].set_title(f"Box plot {sel_col}", color=TEXT)
         st.pyplot(fig); plt.close()

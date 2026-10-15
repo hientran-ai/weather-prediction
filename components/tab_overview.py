@@ -1,7 +1,8 @@
-import streamlit as st
 import pandas as pd
-from utils.helpers import auto_insights, models_ready
+import streamlit as st
+
 from constants.config import ACCENT, ACCENT2, ACCENT3
+from utils.helpers import auto_insights, models_ready
 
 
 def render(df):
@@ -40,6 +41,12 @@ def render(df):
         lm = st.session_state.lgbm_bundle['metrics']
         rm = st.session_state.ridge_bundle['metrics']
         bm = st.session_state.baseline_bundle['metrics'] if st.session_state.baseline_bundle else None
+        split = st.session_state.lgbm_bundle.get('split_info')
+        if split:
+            st.caption(
+                f"Chia tuần tự theo thời gian — train: {split['train_rows']:,} · "
+                f"validation: {split['validation_rows']:,} · test: {split['test_rows']:,} dòng"
+            )
 
         c1, c2, c3 = st.columns(3)
         with c1:

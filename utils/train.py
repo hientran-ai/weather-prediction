@@ -1,22 +1,19 @@
+import lightgbm as lgb
 import numpy as np
 from sklearn.linear_model import Ridge
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-import lightgbm as lgb
+from sklearn.preprocessing import StandardScaler
 
-from utils.helpers import preprocess, feature_engineering
+from utils.pipeline import build_training_frame, chronological_split
 
 
 def train_on_web(df_raw):
     """Train LightGBM + Ridge + Baseline từ CSV upload."""
-    df = preprocess(df_raw.copy())
-    df = feature_engineering(df.copy())
+    df = build_training_frame(df_raw)
 
     feature_cols = [c for c in df.columns if c not in ['datetime', 'target']]
 
-    train = df[df['datetime'] < '2024-01-01']
-    val   = df[(df['datetime'] >= '2024-01-01') & (df['datetime'] < '2025-01-01')]
-    test  = df[df['datetime'] >= '2025-01-01']
+    train, val, test = chronological_split(df)
 
     X_tr,  y_tr  = train[feature_cols], train['target']
     X_val, y_val = val[feature_cols],   val['target']
@@ -37,6 +34,13 @@ def train_on_web(df_raw):
             best_rmse, best_alpha, best_ridge = rmse, alpha, m
 
     ridge_pred    = best_ridge.predict(X_te_s)
+    ridge_val_pred = best_ridge.predict(X_val_s)
+    ridge_val_metrics = {
+        'R2': round(r2_score(y_val, ridge_val_pred), 4),
+        'MAE': round(mean_absolute_error(y_val, ridge_val_pred), 3),
+        'RMSE': round(np.sqrt(mean_squared_error(y_val, ridge_val_pred)), 3),
+        'name': 'Ridge - Validation'
+    }
     ridge_metrics = {
         'R2':   round(r2_score(y_te, ridge_pred), 4),
         'MAE':  round(mean_absolute_error(y_te, ridge_pred), 3),
@@ -56,6 +60,13 @@ def train_on_web(df_raw):
         callbacks=[lgb.early_stopping(50, verbose=False), lgb.log_evaluation(0)]
     )
     lgbm_pred    = lgbm_model.predict(X_te)
+    lgbm_val_pred = lgbm_model.predict(X_val)
+    lgbm_val_metrics = {
+        'R2': round(r2_score(y_val, lgbm_val_pred), 4),
+        'MAE': round(mean_absolute_error(y_val, lgbm_val_pred), 3),
+        'RMSE': round(np.sqrt(mean_squared_error(y_val, lgbm_val_pred)), 3),
+        'name': 'LightGBM - Validation'
+    }
     lgbm_metrics = {
         'R2':   round(r2_score(y_te, lgbm_pred), 4),
         'MAE':  round(mean_absolute_error(y_te, lgbm_pred), 3),
@@ -64,7 +75,14 @@ def train_on_web(df_raw):
     }
 
     # ── Baseline ─────────────────────────────────────────────────────────────
-    baseline_pred    = test['tempmax'].values
+    baseline_pred = test['tempmax'].values
+    baseline_val_pred = val['tempmax'].values
+    baseline_val_metrics = {
+        'R2': round(r2_score(y_val, baseline_val_pred), 4),
+        'MAE': round(mean_absolute_error(y_val, baseline_val_pred), 3),
+        'RMSE': round(np.sqrt(mean_squared_error(y_val, baseline_val_pred)), 3),
+        'name': 'Baseline - Validation'
+    }
     baseline_metrics = {
         'R2':   round(r2_score(y_te, baseline_pred), 4),
         'MAE':  round(mean_absolute_error(y_te, baseline_pred), 3),
@@ -72,8 +90,24 @@ def train_on_web(df_raw):
         'name': 'Baseline (tempmax hôm nay)'
     }
 
-    lgbm_bundle     = {'model': lgbm_model,  'scaler': None,   'feature_cols': feature_cols, 'metrics': lgbm_metrics,     'model_type': 'lightgbm'}
-    ridge_bundle    = {'model': best_ridge,   'scaler': scaler, 'feature_cols': feature_cols, 'metrics': ridge_metrics,    'model_type': 'ridge'}
-    baseline_bundle = {'metrics': baseline_metrics}
-    # print(lgbm_bundle)
+    split_info = {
+        'train_rows': len(train), 'validation_rows': len(val), 'test_rows': len(test),
+        'train_end': train['datetime'].max(),
+        'validation_end': val['datetime'].max(),
+        'test_end': test['datetime'].max(),
+    }
+    lgbm_bundle = {
+        'model': lgbm_model, 'scaler': None, 'feature_cols': feature_cols,
+        'metrics': lgbm_metrics, 'validation_metrics': lgbm_val_metrics,
+        'model_type': 'lightgbm', 'split_info': split_info,
+    }
+    ridge_bundle = {
+        'model': best_ridge, 'scaler': scaler, 'feature_cols': feature_cols,
+        'metrics': ridge_metrics, 'validation_metrics': ridge_val_metrics,
+        'model_type': 'ridge', 'best_alpha': best_alpha, 'split_info': split_info,
+    }
+    baseline_bundle = {
+        'metrics': baseline_metrics, 'validation_metrics': baseline_val_metrics,
+        'split_info': split_info,
+    }
     return lgbm_bundle, ridge_bundle, baseline_bundle, feature_cols

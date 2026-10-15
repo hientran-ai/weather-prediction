@@ -1,10 +1,11 @@
-import streamlit as st
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
-from utils.helpers import styled_fig, models_ready
-from constants.config import ACCENT, ACCENT2, ACCENT3, CARD_BG, TEXT
+import streamlit as st
+
+from constants.config import ACCENT, ACCENT2, ACCENT3
+from utils.helpers import models_ready, styled_fig
 
 
 def render(df):
